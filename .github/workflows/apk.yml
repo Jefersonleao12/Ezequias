@@ -1,0 +1,75 @@
+name: Gerar APK
+
+on:
+  push:
+    paths: ['web/**', 'assets/**', 'capacitor.config.json', 'package.json', 'package-lock.json', '.github/workflows/apk.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Criar projeto Android
+        run: |
+          npx cap add android
+          npm run android:icons
+          npx cap sync android
+
+      # Opcional: com o secret ANDROID_KEYSTORE_BASE64 todas as versões saem com a
+      # mesma assinatura e o celular aceita atualizar por cima (ver README).
+      - name: Usar chave de assinatura fixa
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE" ]; then
+            mkdir -p ~/.android
+            echo "$KEYSTORE" | base64 -d > ~/.android/debug.keystore
+            echo "Usando a chave do secret ANDROID_KEYSTORE_BASE64."
+          else
+            echo "::notice::Sem ANDROID_KEYSTORE_BASE64: cada build tem assinatura nova; para atualizar, desinstale a versão anterior."
+          fi
+
+      - name: Compilar APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Renomear
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk MinhasFinancas.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MinhasFinancas-apk
+          path: MinhasFinancas.apk
+
+      - name: Publicar na release "apk" (link fixo para baixar no celular)
+        if: github.ref_name == github.event.repository.default_branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete apk --yes --cleanup-tag || true
+          gh release create apk MinhasFinancas.apk \
+            --target "$GITHUB_SHA" \
+            --title "Minhas Finanças — APK mais recente" \
+            --notes "Gerado automaticamente a partir de ${GITHUB_SHA::7}. No Android, baixe o arquivo MinhasFinancas.apk e permita instalar de fontes desconhecidas."

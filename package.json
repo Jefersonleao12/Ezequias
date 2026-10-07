@@ -1,0 +1,21 @@
+{
+  "name": "minhas-financas",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Finanças da casa (Eu + Esposa) — PWA no GitHub Pages e APK Android via Capacitor",
+  "scripts": {
+    "serve": "npx --yes http-server@14.1.1 web -p 8080 -c-1",
+    "android:add": "cap add android",
+    "android:icons": "capacitor-assets generate --android --iconBackgroundColor '#0E6B55' --iconBackgroundColorDark '#0E6B55'",
+    "android:sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "7.4.4",
+    "@capacitor/app": "7.1.0",
+    "@capacitor/core": "7.4.4"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "3.0.5",
+    "@capacitor/cli": "7.4.4"
+  }
+}
