@@ -33,15 +33,18 @@ Se um dia precisar recriar em outro projeto, cole esse arquivo no **SQL Editor**
 | `ajustes` | renda mensal e metas da regra 50-30-20 |
 | `sessoes` | logins ativos (só o hash do token; expiram em 90 dias) |
 | `cartoes` | cartões de crédito: nome, de quem é e limite |
-| `compras_cartao` | compras no cartão: valor total, em quantas vezes e mês da 1ª parcela |
+| `compras_cartao` | compras no cartão: valor total, em quantas vezes, mês da 1ª parcela e categoria |
 
 ### Cartões de crédito (versão 3.1)
 
 Rode uma vez no **SQL Editor** o arquivo [`supabase/migrations/20261019000000_cartoes_credito.sql`](supabase/migrations/20261019000000_cartoes_credito.sql).
 Ele cria as tabelas, já cadastra os cartões de `Eu` (Nubank R$ 11.990, InfinitePay R$ 1.100, Banco Pan R$ 1.050) e acrescenta as ações de cartão à função `api()`.
-No app, a seção **Cartões de crédito** do Início mostra a fatura do mês e o limite usado/livre de cada cartão. Tocando num cartão dá para editar nome, limite e dono, e ver ou editar as compras parceladas.
-Os cartões da esposa se cadastram pelo próprio app, em **+ Cartão**.
-As compras no cartão ficam separadas dos gastos do extrato e não entram na regra 50-30-20.
+Depois rode também [`supabase/migrations/20261019010000_compras_com_categoria.sql`](supabase/migrations/20261019010000_compras_com_categoria.sql) (versão 3.2), que dá às compras no cartão a data e as mesmas categorias dos gastos.
+
+- **Lançar:** botão **+** → **💳 Cartão de crédito** → cartão, valor (total ou da parcela), em quantas vezes, categoria e mês da 1ª parcela.
+- **Contas da casa:** a parcela de cada mês entra no gasto do mês, na categoria escolhida, na regra 50-30-20 e no extrato (com 💳 e "3/10").
+- **Painel:** a seção **Cartões de crédito** do Início mostra a fatura do mês e o limite usado/livre. Tocando num cartão dá para editar nome, limite e dono e ver as compras parceladas.
+- Os cartões da esposa se cadastram pelo próprio app, em **+ Cartão**.
 
 ### Criar os PINs (obrigatório, uma vez)
 

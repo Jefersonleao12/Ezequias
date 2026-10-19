@@ -1,6 +1,6 @@
 /* Guarda os arquivos do app para abrir rápido e funcionar sem internet.
    Os dados nunca passam por aqui (vão direto ao Supabase). */
-const CACHE = 'mf-v3.1.0';
+const CACHE = 'mf-v3.2.0';
 const ARQUIVOS = ['./', 'index.html', 'app.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => {
