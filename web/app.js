@@ -1,12 +1,13 @@
 (function(){
 'use strict';
-const VERSAO='3.2.0';
+const VERSAO='3.3.0';
 const SYNC_MS=30000;
 const CFG=Object.assign({},window.FINANCAS_CONFIG);
 const API_URL=CFG.supabaseUrl&&CFG.supabaseKey?CFG.supabaseUrl.replace(/\/+$/,'')+'/rest/v1/rpc/api':'';
 const $=s=>document.querySelector(s);
-const brl=v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-const brl0=v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
+/* com "ocultar valores" ligado, todo valor exibido vira R$ •••• (os campos de digitação não usam estas funções) */
+const brl=v=>S.oculto?'R$ ••••':v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const brl0=v=>S.oculto?'R$ ••••':v.toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 const MES3=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -23,7 +24,7 @@ const LS={
 };
 
 let S={lanc:[],guia:[],cartoes:[],compras:[],temCartoes:false,cats:[],renda:0,metas:[.5,.3,.2],url:'',usuarios:[],mes:'',tab:'inicio',filtro:'',busca:'',pessoa:'',
-  me:LS.json('me'),token:LS.get('token'),api:LS.get('api')==='demo'?'demo':API_URL,offline:false,sync:0,pronto:false};
+  me:LS.json('me'),token:LS.get('token'),oculto:LS.get('oculto')==='1',api:LS.get('api')==='demo'?'demo':API_URL,offline:false,sync:0,pronto:false};
 const DEMO_MODE=()=>S.api==='demo';
 
 /* ---------- API ---------- */
@@ -113,28 +114,65 @@ function topo(titulo){
   (DEMO_MODE()?'<div class="banner">Modo demonstração com dados de exemplo. Nada é salvo de verdade.</div>':'')+
   (S.offline?'<div class="banner off">Sem conexão com o banco de dados. Mostrando os últimos dados salvos no aparelho.</div>':'');
 }
-function icone(cat){return '<div class="ico" style="background:color-mix(in srgb,'+corCat(cat)+' 16%,transparent)">'+emo(cat)+'</div>';}
+/* ícones de linha (24×24) por categoria; categorias novas caem no emoji */
+const SVG=(d,w)=>'<svg viewBox="0 0 24 24" width="'+(w||20)+'" height="'+(w||20)+'" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+d+'</svg>';
+const P=d=>'<path d="'+d+'"/>';
+const ICON={
+  'Moradia':P('M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'),
+  'Contas':P('M13 2 4 14h7l-1 8 9-12h-7z'),
+  'Mercado':'<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/>'+P('M2.5 3h2.2l2.4 11.2a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 1.9-1.5L21 7H5.6'),
+  'Transporte':P('M5 17H3v-5l2-5h14l2 5v5h-2')+'<circle cx="7.5" cy="17" r="2"/><circle cx="16.5" cy="17" r="2"/>'+P('M9.5 17h5M3 12h18'),
+  'Saúde':P('M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z'),
+  'Educação':P('M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5zM4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5'),
+  'Lazer':'<circle cx="12" cy="12" r="9.5"/>'+P('M10 8.5 15.5 12 10 15.5z'),
+  'Restaurante':P('M4 2v7a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V2M7 2v20M20 15V2a4 4 0 0 0-4 4v7a2 2 0 0 0 2 2h2zm0 0v7'),
+  'Compras':P('M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0'),
+  'Vestuário':P('M20.4 6.6 16 3a4 4 0 0 1-8 0L3.6 6.6 6 11l2-1v11h8V10l2 1z'),
+  'Assinaturas':P('M17 2l4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3'),
+  'Poupança':P('M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a2 2 0 0 1 2 2v3h-4a2 2 0 0 0 0 4h4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5'),
+  'Investimento':P('M22 7l-8.5 8.5-5-5L2 17M16 7h6v6'),
+  'Dívidas':'<rect x="2" y="5" width="20" height="14" rx="2.5"/>'+P('M2 10h20M6 15h4'),
+  'Outros':P('M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8'),
+  'Animais':'<circle cx="5" cy="10" r="2"/><circle cx="9.5" cy="5" r="2"/><circle cx="14.5" cy="5" r="2"/><circle cx="19" cy="10" r="2"/>'+P('M8.5 21c-1.8 0-2.8-1.3-2.8-2.8 0-2.6 3-6.2 6.3-6.2s6.3 3.6 6.3 6.2c0 1.5-1 2.8-2.8 2.8-1.2 0-2.2-.6-3.5-.6s-2.3.6-3.5.6z')
+};
+const icoCat=(cat,w)=>ICON[cat]?SVG(ICON[cat],w):'<span style="font-size:'+((w||20)*.9)+'px;line-height:1">'+emo(cat)+'</span>';
+function icone(cat){const c=corCat(cat);return '<div class="ico" style="color:'+c+';background:color-mix(in srgb,'+c+' 13%,transparent)">'+icoCat(cat)+'</div>';}
+const OLHO=SVG(P('M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z')+'<circle cx="12" cy="12" r="3"/>',20);
+const OLHO_OFF=SVG(P('M9.9 4.2A10.6 10.6 0 0 1 12 4c6.4 0 10 7 10 7a17.6 17.6 0 0 1-2.2 3.2M6.6 6.6A17.4 17.4 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2M2 2l20 20'),20);
 function itemHtml(l){
   const k=l.compra&&cartao(l.compra.cartao);
-  return '<button class="item" '+(l.compra?'data-compra-ed="'+l.compra.id+'"':'data-edit="'+l.linha+'"')+'>'+icone(l.cat)+'<div style="min-width:0"><div class="d">'+esc(l.desc||l.sub||l.cat)+'</div><div class="small muted sm">'+tag(l.quem)+' '+(l.compra?'💳 '+esc(k?k.nome:'Cartão')+' · ':'')+esc(l.cat)+(l.sub?' · '+esc(l.sub):'')+'</div></div><div class="val num">−'+brl(l.valor)+'</div></button>';
+  return '<button class="item" '+(l.compra?'data-compra-ed="'+l.compra.id+'"':'data-edit="'+l.linha+'"')+'>'+icone(l.cat)+'<div style="min-width:0"><div class="d">'+esc(l.desc||l.sub||l.cat)+'</div><div class="small muted sm">'+tag(l.quem)+' '+(l.compra?esc(k?k.nome:'Cartão')+' · ':'')+esc(l.cat)+(l.sub?' · '+esc(l.sub):'')+'</div></div><div class="val num">−'+brl(l.valor)+'</div></button>';
 }
 function vazio(msg){return '<div class="empty"><b>'+(msg||'Nenhum gasto neste mês')+'</b>Toque no + para registrar.</div>';}
 
+function avatar(p,tam){return '<div class="avt" style="--c:'+p.cor+(tam?';--s:'+tam+'px':'')+'"><span>'+ini(p.nome)+'</span><i>'+ini(p.nome)+'</i></div>';}
 function cardPessoas(L){
   const pp=porPessoa(L),tot=soma(L);
-  let h='<div class="card ppl"><div class="split">'+(tot?pp.map(p=>'<i style="width:'+(p.v/tot*100)+'%;background:'+p.cor+'" title="'+esc(p.nome)+'"></i>').join(''):'')+'</div>';
-  pp.forEach(p=>{h+='<div class="prow"><div class="av" style="--c:'+p.cor+'">'+ini(p.nome)+'</div><div><b>'+esc(p.nome)+'</b>'+(S.me&&p.id===S.me.id?' <span class="small muted">(você)</span>':'')+
-    '<div class="small muted">'+(n=>n+' lançamento'+(n===1?'':'s'))(L.filter(l=>l.quem===p.id||(!p.id&&!pessoas().some(x=>x.id===l.quem))).length)+'</div></div><div class="val num">'+brl(p.v)+'<div class="small muted" style="font-weight:500">'+(tot?Math.round(p.v/tot*100):0)+'%</div></div></div>';});
+  let h='<div class="card ppl"><div class="split">'+(tot?pp.filter(p=>p.v).map(p=>'<i style="width:'+(p.v/tot*100)+'%;background:'+p.cor+'" title="'+esc(p.nome)+'"></i>').join(''):'')+'</div>';
+  pp.forEach(p=>{
+    const M=L.filter(l=>l.quem===p.id||(!p.id&&!pessoas().some(x=>x.id===l.quem))),n=M.length;
+    const top={};M.forEach(l=>top[l.cat]=(top[l.cat]||0)+l.valor);
+    const tops=Object.entries(top).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c])=>'<span class="mini-ico" title="'+esc(c)+'">'+icoCat(c,15)+'</span>').join('');
+    h+='<div class="prow">'+avatar(p)+'<div style="min-width:0"><div class="pn"><b>'+esc(p.nome)+'</b>'+(S.me&&p.id===S.me.id?' <span class="muted">(você)</span>':'')+'</div>'+
+      '<div class="small muted">'+n+' lançamento'+(n===1?'':'s')+' · '+(tot?Math.round(p.v/tot*100):0)+'%</div>'+
+      (tops?'<div class="tops" style="--c:'+p.cor+'">'+tops+'</div>':'')+'</div>'+
+      '<div class="val num">'+brl(p.v)+(p.id?'<button class="ver" data-ver="'+esc(p.id)+'" aria-label="Ver lançamentos de '+esc(p.nome)+'">'+SVG('<circle cx="11" cy="11" r="7"/>'+P('M20 20l-4-4'),13)+' Ver</button>':'')+'</div></div>';});
   return h+'</div>';
 }
 
 function vInicio(){
   const L=doMes(S.mes),gasto=soma(L),sobra=S.renda-gasto;
-  const pct=S.renda?Math.min(100,gasto/S.renda*100):0;
+  const pct=S.renda?gasto/S.renda*100:0,pc=Math.min(100,pct);
+  const R=34,C=2*Math.PI*R,cor=pct>90?'#FF7A6B':pct>70?'#FFB547':'#7BE0B5';
   let h=topo('Olá, '+esc(S.me?S.me.nome:'')+'!');
-  h+='<div class="hero"><div class="lbl">'+(sobra>=0?'Sobra da casa no mês':'Faltando no mês')+'</div><div class="big num">'+brl(Math.abs(sobra))+'</div>'+
-     '<div class="bar"><i style="width:'+pct+'%"></i></div>'+
-     '<div class="row num"><span>Gasto '+brl(gasto)+'</span><span>Renda '+brl(S.renda)+'</span></div></div>';
+  h+='<div class="hero"><div class="hero-top"><div class="lbl">'+(sobra>=0?'Saldo da casa':'Faltando no mês')+'</div>'+
+     '<button class="eye" id="olho" aria-label="'+(S.oculto?'Mostrar valores':'Ocultar valores')+'" aria-pressed="'+!!S.oculto+'">'+(S.oculto?OLHO_OFF:OLHO)+'</button></div>'+
+     '<div class="hero-mid"><div style="min-width:0;flex:1"><div class="big num">'+(sobra<0&&!S.oculto?'−':'')+brl(Math.abs(sobra))+'</div>'+
+     '<div class="bar"><i style="width:'+pc+'%;background:'+cor+'"></i></div></div>'+
+     '<svg class="ring" viewBox="0 0 84 84" role="img" aria-label="'+Math.round(pct)+'% da renda gasto"><circle cx="42" cy="42" r="'+R+'" stroke="rgba(255,255,255,.18)"/>'+
+     '<circle cx="42" cy="42" r="'+R+'" stroke="'+cor+'" stroke-dasharray="'+(C*pc/100).toFixed(1)+' '+C.toFixed(1)+'" transform="rotate(-90 42 42)"/>'+
+     '<text x="42" y="47" text-anchor="middle">'+Math.round(pct)+'%</text></svg></div>'+
+     '<div class="row num"><div><small>Gasto no mês</small><b>'+brl(gasto)+'</b> <em>'+(S.renda?pct.toFixed(1).replace('.',','):'0')+'%</em></div><div style="text-align:right"><small>Renda</small><b>'+brl(S.renda)+'</b></div></div></div>';
   h+='<h2>Quem gastou</h2>'+cardPessoas(L);
   h+=cardCartoes();
   // 50-30-20
@@ -166,21 +204,40 @@ function vInicio(){
   return h;
 }
 
+/* visual de cada banco pelo nome do cartão: fundo do cartão, cor do selo e a marca */
+const BANCOS=[
+  [/nu ?bank|^nu\b/i,'linear-gradient(135deg,#8A05BE,#5B0C8C)','#820AD1','<b style="font:800 15px/1 var(--b);letter-spacing:-.5px">nu</b>'],
+  [/infinit/i,'linear-gradient(135deg,#2A2A2A,#0B0B0B)','#111',SVG(P('M8.5 15.5c-2 0-3.5-1.6-3.5-3.5S6.5 8.5 8.5 8.5c3.5 0 3.5 7 7 7 2 0 3.5-1.6 3.5-3.5s-1.5-3.5-3.5-3.5c-3.5 0-3.5 7-7 7z'),22)],
+  [/\bpan\b/i,'linear-gradient(135deg,#1A8FE0,#0062B5)','#fff','<b style="font:800 20px/1 var(--b);color:#0A73C9;position:relative">P<i style="position:absolute;top:-3px;left:-4px;width:6px;height:6px;border-radius:50%;background:#F7941D"></i></b>'],
+  [/inter\b/i,'linear-gradient(135deg,#FF8A00,#E25B00)','#FF7A00','<b style="font:800 14px/1 var(--b)">inter</b>'],
+  [/ita[uú]/i,'linear-gradient(135deg,#F28500,#D45F00)','#003A8F','<b style="font:800 13px/1 var(--b);color:#FFD200">itaú</b>'],
+  [/bradesco/i,'linear-gradient(135deg,#D3112B,#9E0B20)','#CC092F','<b style="font:800 18px/1 var(--b)">b</b>'],
+  [/santander/i,'linear-gradient(135deg,#EC1C24,#B5121A)','#EC0000','<b style="font:800 18px/1 var(--b)">s</b>'],
+  [/\bc6\b/i,'linear-gradient(135deg,#3A3A3A,#121212)','#1E1E1E','<b style="font:800 15px/1 var(--b)">C6</b>'],
+  [/caixa/i,'linear-gradient(135deg,#1C6DB8,#0B4C8C)','#005CA9','<b style="font:800 18px/1 var(--b);color:#F7941D">X</b>'],
+  [/mercado ?pago/i,'linear-gradient(135deg,#00A8E8,#0079C1)','#00B1EA','<b style="font:800 13px/1 var(--b)">MP</b>'],
+  [/picpay/i,'linear-gradient(135deg,#21C25E,#119647)','#21C25E','<b style="font:800 13px/1 var(--b)">pic</b>'],
+  [/banco do brasil|\bbb\b/i,'linear-gradient(135deg,#2B5CB8,#163C85)','#FCF000','<b style="font:800 14px/1 var(--b);color:#2B5CB8">BB</b>']
+];
+function banco(c,i){const b=BANCOS.find(b=>b[0].test(c.nome));if(b)return{fundo:b[1],selo:b[2],marca:b[3]};
+  const cor=PAL[i%PAL.length];return{fundo:'linear-gradient(135deg,'+cor+',color-mix(in srgb,'+cor+' 70%,#000))',selo:'rgba(255,255,255,.18)',marca:'<b style="font:800 17px/1 var(--b)">'+ini(c.nome)+'</b>'};}
+
 function cardCartoes(){
-  let h='<h2 style="display:flex;justify-content:space-between;align-items:center">Cartões de crédito'+(S.temCartoes?'<button class="link" id="cc-novo" style="padding:0">+ Cartão</button>':'')+'</h2>';
+  let h='<div class="h2row"><h2>Cartões de crédito</h2>'+(S.temCartoes?'<button class="link" id="cc-novo">+ Cartão</button>':'')+'</div>';
   if(!S.temCartoes)return h+'<div class="card small muted">Para usar os cartões, rode no SQL Editor do Supabase o arquivo <b>supabase/migrations/20261019000000_cartoes_credito.sql</b> (veja o README).</div>';
   if(!S.cartoes.length)return h+'<div class="card"><div class="empty"><b>Nenhum cartão cadastrado</b>Toque em “+ Cartão” para adicionar.</div></div>';
   const fat=S.cartoes.map(c=>fatura(c.id,S.mes)),tf=fat.reduce((a,b)=>a+b,0);
   const lim=S.cartoes.reduce((a,c)=>a+c.limite,0),us=S.cartoes.reduce((a,c)=>a+usado(c.id,S.mes),0);
   h+='<div class="card"><div class="kv" style="padding-top:0"><span>Faturas de '+MESES[+S.mes.slice(5)-1]+'</span><b class="num">'+brl(tf)+'</b></div>'+
-     '<div class="kv"><span>Limite livre (todos)</span><b class="num" style="color:'+(lim-us<0?'var(--neg)':'var(--pos)')+'">'+brl(lim-us)+'</b></div>';
-  S.cartoes.forEach((c,i)=>{const u=usado(c.id,S.mes),livre=c.limite-u,p=c.limite?Math.min(100,u/c.limite*100):(u?100:0);
-    h+='<button class="item cc" data-cartao="'+c.id+'"><div class="ico" style="background:color-mix(in srgb,'+PAL[i%PAL.length]+' 16%,transparent)">💳</div>'+
-      '<div style="min-width:0"><div class="d">'+esc(c.nome)+' '+(c.dono?tag(c.dono):'')+'</div>'+
-      '<div class="track" style="margin:6px 0 4px"><i style="width:'+p+'%;background:'+(livre<0?'var(--neg)':PAL[i%PAL.length])+'"></i></div>'+
-      '<div class="small muted num">Usado '+brl0(u)+' de '+brl0(c.limite)+' · livre '+brl0(livre)+'</div></div>'+
-      '<div class="val num">'+brl(fat[i])+'<div class="small muted" style="font-weight:500">fatura</div></div></button>';});
-  return h+'<div class="small muted" style="margin-top:8px">Para lançar uma compra no cartão, toque no <b>+</b> e escolha <b>💳 Cartão de crédito</b>.</div></div>';
+     '<div class="kv"><span>Limite livre (todos)</span><b class="num" style="color:'+(lim-us<0?'var(--neg)':'var(--pos)')+'">'+brl(lim-us)+'</b></div><div class="ccs">';
+  S.cartoes.forEach((c,i)=>{const u=usado(c.id,S.mes),livre=c.limite-u,p=c.limite?Math.min(100,u/c.limite*100):(u?100:0),b=banco(c,i);
+    const alerta=p>=90?'#FF8A80':p>=70?'#FFD166':'#fff';
+    h+='<button class="ccard" data-cartao="'+c.id+'" style="background:'+b.fundo+'"><div class="logo" style="background:'+b.selo+'">'+b.marca+'</div>'+
+      '<div style="min-width:0"><div class="cn"><span>'+esc(c.nome)+'</span>'+(c.dono?'<span class="own">'+esc(pessoa(c.dono).nome)+'</span>':'')+'</div>'+
+      '<div class="cbar"><i style="width:'+p+'%;background:'+alerta+'"></i></div>'+
+      '<div class="cu num">Livre <b>'+brl0(livre)+'</b> de '+(S.oculto?'••••':c.limite.toLocaleString('pt-BR',{maximumFractionDigits:0}))+'</div></div>'+
+      '<div class="cf num">'+brl(fat[i])+'<small>fatura</small></div></button>';});
+  return h+'</div><button class="btn ghost lancar" id="cc-lancar">'+SVG(ICON['Dívidas'],20)+' Lançar compra no cartão</button></div>';
 }
 
 function graficoDias(L){
@@ -206,7 +263,7 @@ function vExtrato(){
   h+='<input class="search" id="busca" type="search" placeholder="Buscar lançamento" value="'+esc(S.busca)+'" style="margin-top:8px">';
   const pp=pessoas();if(M.some(l=>!pp.some(p=>p.id===l.quem)))pp.push({id:'-',nome:'Sem autor'});
   h+='<div class="chips" aria-label="Filtrar por pessoa"><button class="chip" data-p="" aria-pressed="'+(!S.pessoa)+'">Todos</button>'+pp.map(p=>'<button class="chip" data-p="'+esc(p.id)+'" aria-pressed="'+(S.pessoa===p.id)+'">'+esc(p.nome)+'</button>').join('')+'</div>';
-  h+='<div class="chips" aria-label="Filtrar por categoria" style="padding-top:0"><button class="chip" data-f="" aria-pressed="'+(!S.filtro)+'">Todas</button>'+catsMes.map(c=>'<button class="chip" data-f="'+esc(c)+'" aria-pressed="'+(S.filtro===c)+'">'+emo(c)+' '+esc(c)+'</button>').join('')+'</div>';
+  h+='<div class="chips" aria-label="Filtrar por categoria" style="padding-top:0"><button class="chip" data-f="" aria-pressed="'+(!S.filtro)+'">Todas</button>'+catsMes.map(c=>'<button class="chip" data-f="'+esc(c)+'" aria-pressed="'+(S.filtro===c)+'"><span style="display:inline-flex;vertical-align:-3px;margin-right:4px">'+icoCat(c,15)+'</span>'+esc(c)+'</button>').join('')+'</div>';
   h+='<div class="small muted" style="margin:0 4px 4px">'+L.length+' lançamento'+(L.length===1?'':'s')+' · total <b class="num">'+brl(soma(L))+'</b></div>';
   if(!L.length)return h+'<div class="card">'+vazio(M.length?'Nada encontrado com esse filtro':'')+'</div>';
   h+='<div class="card list">';let dia='';
@@ -322,7 +379,9 @@ function bind(){
   const on=(id,fn)=>{const e=$(id);if(e)e.onclick=fn;};
   on('#aj-salvar',salvarAjustes);on('#aj-atual',()=>carregar({aviso:true}));on('#aj-sair',sair);
   document.querySelectorAll('[data-cartao]').forEach(b=>b.onclick=()=>abrirCartao(cartao(+b.dataset.cartao)));
-  on('#cc-novo',()=>abrirCartao(null));
+  on('#cc-novo',()=>abrirCartao(null));on('#cc-lancar',()=>abrirForm(null,{cartao:S.cartoes[0]&&S.cartoes[0].id}));
+  on('#olho',()=>{S.oculto=!S.oculto;LS.set('oculto',S.oculto?'1':null);render();});
+  document.querySelectorAll('[data-ver]').forEach(b=>b.onclick=()=>{S.pessoa=b.dataset.ver;S.filtro='';S.tab='extrato';render();window.scrollTo(0,0);});
 }
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{S.tab=t.dataset.tab;render();window.scrollTo(0,0);});
 $('#fab').onclick=()=>{if(S.pronto)abrirForm(null);};
@@ -359,7 +418,7 @@ function abrirForm(l,o){
       '<div class="small muted num" id="f-prev" style="margin-top:6px"></div>'+
     '</div>'+
     '<label class="lab" for="f-desc">Descrição</label><input class="inp" id="f-desc" maxlength="200" placeholder="Ex.: compras do mês" value="'+esc(l?l.desc:x?x.desc:'')+'">'+
-    '<span class="lab">Categoria</span><div class="catgrid" id="f-cats">'+S.cats.map(c=>'<button type="button" class="cg" data-c="'+esc(c)+'" aria-pressed="'+(F.cat===c)+'"><span>'+emo(c)+'</span>'+esc(c)+'</button>').join('')+'</div>'+
+    '<span class="lab">Categoria</span><div class="catgrid" id="f-cats">'+S.cats.map(c=>'<button type="button" class="cg" data-c="'+esc(c)+'" aria-pressed="'+(F.cat===c)+'">'+icoCat(c,22)+esc(c)+'</button>').join('')+'</div>'+
     '<label class="lab" for="f-sub">Subcategoria</label><input class="inp" id="f-sub" list="f-subs" maxlength="100" placeholder="Opcional" value="'+esc(l?l.sub:x?x.sub||'':'')+'"><datalist id="f-subs"></datalist>'+
     '<span class="lab">Tipo</span><div class="seg" id="f-tipo">'+TIPOS.map(t=>'<button type="button" data-t="'+t+'">'+t+'</button>').join('')+'</div>'+
     '<label class="lab" for="f-data" id="f-datalab">Data</label><input class="inp" id="f-data" type="date" value="'+dataPadrao+'">'+
