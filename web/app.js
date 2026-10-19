@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSAO='3.3.0';
+const VERSAO='3.4.0';
 const SYNC_MS=30000;
 const CFG=Object.assign({},window.FINANCAS_CONFIG);
 const API_URL=CFG.supabaseUrl&&CFG.supabaseKey?CFG.supabaseUrl.replace(/\/+$/,'')+'/rest/v1/rpc/api':'';
@@ -24,8 +24,20 @@ const LS={
 };
 
 let S={lanc:[],guia:[],cartoes:[],compras:[],temCartoes:false,cats:[],renda:0,metas:[.5,.3,.2],url:'',usuarios:[],mes:'',tab:'inicio',filtro:'',busca:'',pessoa:'',
-  me:LS.json('me'),token:LS.get('token'),oculto:LS.get('oculto')==='1',api:LS.get('api')==='demo'?'demo':API_URL,offline:false,sync:0,pronto:false};
+  me:LS.json('me'),token:LS.get('token'),oculto:LS.get('oculto')==='1',tema:LS.get('tema')||'auto',api:LS.get('api')==='demo'?'demo':API_URL,offline:false,sync:0,pronto:false};
 const DEMO_MODE=()=>S.api==='demo';
+
+/* ---------- tema: 'auto' segue o celular; 'claro'/'escuro' fixam ---------- */
+const ESCURO_SO=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
+function escuroAgora(){return S.tema==='escuro'||(S.tema==='auto'&&!!(ESCURO_SO&&ESCURO_SO.matches));}
+function aplicarTema(){
+  const r=document.documentElement;
+  if(S.tema==='auto')r.removeAttribute('data-theme');else r.setAttribute('data-theme',S.tema==='escuro'?'dark':'light');
+  const m=document.querySelector('meta[name="theme-color"]');if(m)m.content=escuroAgora()?'#0E1513':'#0E6B55';
+}
+function definirTema(t){S.tema=t;LS.set('tema',t==='auto'?null:t);aplicarTema();if(S.pronto)render();}
+aplicarTema();
+if(ESCURO_SO&&ESCURO_SO.addEventListener)ESCURO_SO.addEventListener('change',()=>{if(S.tema==='auto'){aplicarTema();if(S.pronto&&!F)render();}});
 
 /* ---------- API ---------- */
 async function api(acao,dados){
@@ -110,6 +122,7 @@ function render(){
 }
 function topo(titulo){
   return '<div class="top"><div class="hello">'+titulo+'</div>'+
+  '<button class="tema" id="tema" aria-label="'+(escuroAgora()?'Usar tema claro':'Usar tema escuro')+'">'+(escuroAgora()?SOL:LUA)+'</button>'+
   '<div class="month"><button data-m="-1" aria-label="Mês anterior">‹</button><b>'+mesNome(S.mes)+'</b><button data-m="1" aria-label="Próximo mês">›</button></div></div>'+
   (DEMO_MODE()?'<div class="banner">Modo demonstração com dados de exemplo. Nada é salvo de verdade.</div>':'')+
   (S.offline?'<div class="banner off">Sem conexão com o banco de dados. Mostrando os últimos dados salvos no aparelho.</div>':'');
@@ -138,6 +151,8 @@ const ICON={
 const icoCat=(cat,w)=>ICON[cat]?SVG(ICON[cat],w):'<span style="font-size:'+((w||20)*.9)+'px;line-height:1">'+emo(cat)+'</span>';
 function icone(cat){const c=corCat(cat);return '<div class="ico" style="color:'+c+';background:color-mix(in srgb,'+c+' 13%,transparent)">'+icoCat(cat)+'</div>';}
 const OLHO=SVG(P('M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z')+'<circle cx="12" cy="12" r="3"/>',20);
+const SOL=SVG('<circle cx="12" cy="12" r="4.5"/>'+P('M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4'),20);
+const LUA=SVG(P('M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z'),20);
 const OLHO_OFF=SVG(P('M9.9 4.2A10.6 10.6 0 0 1 12 4c6.4 0 10 7 10 7a17.6 17.6 0 0 1-2.2 3.2M6.6 6.6A17.4 17.4 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2M2 2l20 20'),20);
 function itemHtml(l){
   const k=l.compra&&cartao(l.compra.cartao);
@@ -309,8 +324,10 @@ function vRel(){
 
 function vAjustes(){
   const me=pessoa(S.me&&S.me.id);
-  let h='<div class="top"><div class="hello">Ajustes</div></div>';
+  let h='<div class="top"><div class="hello">Ajustes</div><button class="tema" id="tema" aria-label="'+(escuroAgora()?'Usar tema claro':'Usar tema escuro')+'">'+(escuroAgora()?SOL:LUA)+'</button></div>';
   h+='<div class="card prow"><div class="av" style="--c:'+me.cor+'">'+ini(me.nome)+'</div><div><b>'+esc(me.nome)+'</b><div class="small muted">Seus lançamentos aparecem com o seu nome para os dois.</div></div><button class="btn ghost" id="aj-sair" style="flex:0 0 auto;padding:10px 14px">Sair</button></div>';
+  h+='<h2>Aparência</h2><div class="card"><div class="seg" id="aj-tema">'+[['auto','Automático'],['claro','Claro'],['escuro','Escuro']].map(([v,n])=>'<button type="button" data-tema="'+v+'" aria-pressed="'+(S.tema===v)+'"'+(S.tema===v?' style="background:var(--brand)"':'')+'>'+n+'</button>').join('')+'</div>'+
+     '<div class="small muted" style="margin-top:8px">Automático segue o tema do celular. Também dá para trocar pelo botão '+(escuroAgora()?'do sol':'da lua')+' no topo das telas.</div></div>';
   h+='<h2>Renda e metas da casa</h2><div class="card"><label class="lab" for="aj-renda" style="margin-top:0">Renda mensal (somando os dois)</label><input class="inp num" id="aj-renda" inputmode="decimal" value="'+String(S.renda).replace('.',',')+'">'+
      '<label class="lab">Metas da regra (em %)</label><div class="seg">'+
      TIPOS.map((t,i)=>'<div><div class="small muted" style="margin-bottom:4px">'+t+'</div><input class="inp num" id="aj-m'+i+'" inputmode="numeric" value="'+Math.round((S.metas[i]||0)*100)+'"></div>').join('')+'</div>'+
@@ -380,6 +397,8 @@ function bind(){
   on('#aj-salvar',salvarAjustes);on('#aj-atual',()=>carregar({aviso:true}));on('#aj-sair',sair);
   document.querySelectorAll('[data-cartao]').forEach(b=>b.onclick=()=>abrirCartao(cartao(+b.dataset.cartao)));
   on('#cc-novo',()=>abrirCartao(null));on('#cc-lancar',()=>abrirForm(null,{cartao:S.cartoes[0]&&S.cartoes[0].id}));
+  on('#tema',()=>definirTema(escuroAgora()?'claro':'escuro'));
+  document.querySelectorAll('[data-tema]').forEach(b=>b.onclick=()=>definirTema(b.dataset.tema));
   on('#olho',()=>{S.oculto=!S.oculto;LS.set('oculto',S.oculto?'1':null);render();});
   document.querySelectorAll('[data-ver]').forEach(b=>b.onclick=()=>{S.pessoa=b.dataset.ver;S.filtro='';S.tab='extrato';render();window.scrollTo(0,0);});
 }
