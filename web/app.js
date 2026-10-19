@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSAO='3.4.0';
+const VERSAO='3.5.0';
 const SYNC_MS=30000;
 const CFG=Object.assign({},window.FINANCAS_CONFIG);
 const API_URL=CFG.supabaseUrl&&CFG.supabaseKey?CFG.supabaseUrl.replace(/\/+$/,'')+'/rest/v1/rpc/api':'';
@@ -160,21 +160,6 @@ function itemHtml(l){
 }
 function vazio(msg){return '<div class="empty"><b>'+(msg||'Nenhum gasto neste mês')+'</b>Toque no + para registrar.</div>';}
 
-function avatar(p,tam){return '<div class="avt" style="--c:'+p.cor+(tam?';--s:'+tam+'px':'')+'"><span>'+ini(p.nome)+'</span><i>'+ini(p.nome)+'</i></div>';}
-function cardPessoas(L){
-  const pp=porPessoa(L),tot=soma(L);
-  let h='<div class="card ppl"><div class="split">'+(tot?pp.filter(p=>p.v).map(p=>'<i style="width:'+(p.v/tot*100)+'%;background:'+p.cor+'" title="'+esc(p.nome)+'"></i>').join(''):'')+'</div>';
-  pp.forEach(p=>{
-    const M=L.filter(l=>l.quem===p.id||(!p.id&&!pessoas().some(x=>x.id===l.quem))),n=M.length;
-    const top={};M.forEach(l=>top[l.cat]=(top[l.cat]||0)+l.valor);
-    const tops=Object.entries(top).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c])=>'<span class="mini-ico" title="'+esc(c)+'">'+icoCat(c,15)+'</span>').join('');
-    h+='<div class="prow">'+avatar(p)+'<div style="min-width:0"><div class="pn"><b>'+esc(p.nome)+'</b>'+(S.me&&p.id===S.me.id?' <span class="muted">(você)</span>':'')+'</div>'+
-      '<div class="small muted">'+n+' lançamento'+(n===1?'':'s')+' · '+(tot?Math.round(p.v/tot*100):0)+'%</div>'+
-      (tops?'<div class="tops" style="--c:'+p.cor+'">'+tops+'</div>':'')+'</div>'+
-      '<div class="val num">'+brl(p.v)+(p.id?'<button class="ver" data-ver="'+esc(p.id)+'" aria-label="Ver lançamentos de '+esc(p.nome)+'">'+SVG('<circle cx="11" cy="11" r="7"/>'+P('M20 20l-4-4'),13)+' Ver</button>':'')+'</div></div>';});
-  return h+'</div>';
-}
-
 function vInicio(){
   const L=doMes(S.mes),gasto=soma(L),sobra=S.renda-gasto;
   const pct=S.renda?gasto/S.renda*100:0,pc=Math.min(100,pct);
@@ -188,7 +173,6 @@ function vInicio(){
      '<circle cx="42" cy="42" r="'+R+'" stroke="'+cor+'" stroke-dasharray="'+(C*pc/100).toFixed(1)+' '+C.toFixed(1)+'" transform="rotate(-90 42 42)"/>'+
      '<text x="42" y="47" text-anchor="middle">'+Math.round(pct)+'%</text></svg></div>'+
      '<div class="row num"><div><small>Gasto no mês</small><b>'+brl(gasto)+'</b> <em>'+(S.renda?pct.toFixed(1).replace('.',','):'0')+'%</em></div><div style="text-align:right"><small>Renda</small><b>'+brl(S.renda)+'</b></div></div></div>';
-  h+='<h2>Quem gastou</h2>'+cardPessoas(L);
   h+=cardCartoes();
   // 50-30-20
   h+='<h2>Regra 50-30-20</h2><div class="card rule">';
@@ -203,15 +187,15 @@ function vInicio(){
   const semTipo=soma(L.filter(l=>!tipoReal(l)));
   if(semTipo)h+='<div class="small muted">'+brl(semTipo)+' sem tipo definido (fora da regra)</div>';
   h+='</div>';
-  // categorias, com a barra dividida por pessoa
+  // categorias
   const porCat={};L.forEach(l=>porCat[l.cat]=(porCat[l.cat]||0)+l.valor);
   const cats=Object.entries(porCat).sort((a,b)=>b[1]-a[1]);
   h+='<h2>Por categoria</h2><div class="card">';
   if(!cats.length)h+=vazio();
   else{h+='<div class="cats">';const max=cats[0][1];
-    cats.forEach(([c,v])=>{const pp=porPessoa(L.filter(l=>l.cat===c));
-      h+='<div class="cat">'+icone(c)+'<div><div class="nm">'+esc(c)+'</div><div class="mini" style="width:'+(v/max*100)+'%">'+pp.map(p=>'<i style="width:'+(p.v/v*100)+'%;background:'+p.cor+'"></i>').join('')+'</div></div><div class="val num">'+brl(v)+'<div class="small muted" style="font-weight:500">'+(gasto?Math.round(v/gasto*100):0)+'%</div></div></div>';});
-    h+='</div><div class="legend">'+porPessoa(L).map(p=>'<span style="--c:'+p.cor+'">'+esc(p.nome)+'</span>').join('')+'</div>';}
+    cats.forEach(([c,v])=>{
+      h+='<div class="cat">'+icone(c)+'<div><div class="nm">'+esc(c)+'</div><div class="mini" style="width:'+(v/max*100)+'%"><i style="width:100%;background:'+corCat(c)+'"></i></div></div><div class="val num">'+brl(v)+'<div class="small muted" style="font-weight:500">'+(gasto?Math.round(v/gasto*100):0)+'%</div></div></div>';});
+    h+='</div>';}
   h+='</div>';
   h+='<h2>Gasto por dia</h2><div class="card chart">'+graficoDias(L)+'</div>';
   const ult=[...L].sort((a,b)=>b.data.localeCompare(a.data)||(+b.linha||0)-(+a.linha||0)).slice(0,6);
@@ -400,7 +384,6 @@ function bind(){
   on('#tema',()=>definirTema(escuroAgora()?'claro':'escuro'));
   document.querySelectorAll('[data-tema]').forEach(b=>b.onclick=()=>definirTema(b.dataset.tema));
   on('#olho',()=>{S.oculto=!S.oculto;LS.set('oculto',S.oculto?'1':null);render();});
-  document.querySelectorAll('[data-ver]').forEach(b=>b.onclick=()=>{S.pessoa=b.dataset.ver;S.filtro='';S.tab='extrato';render();window.scrollTo(0,0);});
 }
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{S.tab=t.dataset.tab;render();window.scrollTo(0,0);});
 $('#fab').onclick=()=>{if(S.pronto)abrirForm(null);};
