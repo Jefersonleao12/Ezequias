@@ -32,6 +32,16 @@ Se um dia precisar recriar em outro projeto, cole esse arquivo no **SQL Editor**
 | `guia` | categorias, tipo (Necessidade / Desejo / Poupança/Dívida) e exemplos |
 | `ajustes` | renda mensal e metas da regra 50-30-20 |
 | `sessoes` | logins ativos (só o hash do token; expiram em 90 dias) |
+| `cartoes` | cartões de crédito: nome, de quem é e limite |
+| `compras_cartao` | compras no cartão: valor total, em quantas vezes e mês da 1ª parcela |
+
+### Cartões de crédito (versão 3.1)
+
+Rode uma vez no **SQL Editor** o arquivo [`supabase/migrations/20261019000000_cartoes_credito.sql`](supabase/migrations/20261019000000_cartoes_credito.sql).
+Ele cria as tabelas, já cadastra os cartões de `Eu` (Nubank R$ 11.990, InfinitePay R$ 1.100, Banco Pan R$ 1.050) e acrescenta as ações de cartão à função `api()`.
+No app, a seção **Cartões de crédito** do Início mostra a fatura do mês e o limite usado/livre de cada cartão. Tocando num cartão dá para editar nome, limite e dono, e ver ou editar as compras parceladas.
+Os cartões da esposa se cadastram pelo próprio app, em **+ Cartão**.
+As compras no cartão ficam separadas dos gastos do extrato e não entram na regra 50-30-20.
 
 ### Criar os PINs (obrigatório, uma vez)
 
