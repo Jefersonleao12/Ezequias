@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSAO='3.5.0';
+const VERSAO='3.5.1';
 const SYNC_MS=30000;
 const CFG=Object.assign({},window.FINANCAS_CONFIG);
 const API_URL=CFG.supabaseUrl&&CFG.supabaseKey?CFG.supabaseUrl.replace(/\/+$/,'')+'/rest/v1/rpc/api':'';
