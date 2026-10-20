@@ -4,5 +4,10 @@
   "webDir": "web",
   "android": {
     "adjustMarginsForEdgeToEdge": "force"
+  },
+  "plugins": {
+    "Keyboard": {
+      "resizeOnFullScreen": true
+    }
   }
 }

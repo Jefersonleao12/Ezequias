@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSAO='3.5.1';
+const VERSAO='3.5.2';
 const SYNC_MS=30000;
 const CFG=Object.assign({},window.FINANCAS_CONFIG);
 const API_URL=CFG.supabaseUrl&&CFG.supabaseKey?CFG.supabaseUrl.replace(/\/+$/,'')+'/rest/v1/rpc/api':'';
@@ -610,6 +610,23 @@ if(CapApp)CapApp.addListener('backButton',()=>{
   else if(S.token&&S.tab!=='inicio'){S.tab='inicio';render();}
   else CapApp.exitApp();
 });
+/* ---------- teclado: o campo em edição nunca fica escondido atrás dele ----------
+   --kb = quanto do teclado ainda cobre a tela (se o Android já encolheu a tela, desconta). */
+let alturaSemTeclado=window.innerHeight;
+function mostrarFoco(){const el=document.activeElement;if(el&&/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))el.scrollIntoView({block:'center',behavior:'smooth'});}
+function teclado(h){
+  const cobre=h>0?Math.max(0,h-Math.max(0,alturaSemTeclado-window.innerHeight)):0;
+  document.documentElement.style.setProperty('--kb',cobre+'px');
+  document.body.classList.toggle('kb',h>0);
+  if(h>0)setTimeout(mostrarFoco,60);
+}
+window.addEventListener('resize',()=>{if(!document.body.classList.contains('kb'))alturaSemTeclado=window.innerHeight;});
+const Kb=Cap&&Cap.Plugins&&Cap.Plugins.Keyboard;
+if(Kb){Kb.addListener('keyboardDidShow',i=>teclado(i.keyboardHeight||0));Kb.addListener('keyboardWillHide',()=>teclado(0));}
+else if(window.visualViewport){const vv=window.visualViewport;
+  vv.addEventListener('resize',()=>{const h=window.innerHeight-vv.height-vv.offsetTop;teclado(h>80?h:0);});}
+document.addEventListener('focusin',e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))setTimeout(mostrarFoco,350);});
+
 if('serviceWorker' in navigator&&!(Cap&&Cap.isNativePlatform&&Cap.isNativePlatform())&&location.protocol==='https:'){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
